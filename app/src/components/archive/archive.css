@@ -753,18 +753,26 @@ body.sukhum-body {
   background: var(--sk-panel);
 }
 
-.lightbox__img,
-.lightbox__under {
+/* Frame with the photograph's proportions (--r = width / height). Images sit
+   at the top at full width; whatever hangs below the frame is clipped. */
+.lightbox__crop {
+  --lb-max-h: calc(100dvh - 5rem);
+  position: relative;
   grid-area: 1 / 1;
-  max-width: 100%;
-  max-height: calc(100dvh - 5rem);
-  object-fit: contain;
+  width: min(100%, calc(var(--lb-max-h) * var(--r, 1.5)));
+  aspect-ratio: calc(var(--r, 1.5) * 1.004);
+  overflow: hidden;
   border-radius: 6px;
 }
 
+.lightbox__img,
 .lightbox__under {
-  width: auto;
-  height: calc(100dvh - 5rem);
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .lightbox__loading {
@@ -797,10 +805,7 @@ body.sukhum-body {
 }
 
 .lightbox__img {
-  position: relative;
   z-index: 1;
-  width: auto;
-  height: calc(100dvh - 5rem);
   transition: opacity 0.35s ease;
 }
 
@@ -1312,10 +1317,8 @@ body.sukhum-body {
     border-radius: 0;
   }
 
-  .lightbox__img,
-  .lightbox__under {
-    height: auto;
-    max-height: 55dvh;
+  .lightbox__crop {
+    --lb-max-h: 55dvh;
   }
 
   .lightbox__info {

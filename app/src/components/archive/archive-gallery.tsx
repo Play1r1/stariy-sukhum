@@ -443,21 +443,25 @@ function Lightbox({
             touch.current = e.touches[0]?.clientX ?? null;
           }}
         >
-          <ArchiveImg
-            alt=""
-            className="lightbox__under"
-            eager
-            sources={[photoThumb(photo), photoDirect(photo)]}
-          />
           {!loaded ? <span aria-hidden="true" className="lightbox__loading" /> : null}
-          <ArchiveImg
-            alt={photo.t}
-            className="lightbox__img"
-            eager
-            onLoad={() => setLoadedId(photo.id)}
-            sources={[photoFull(photo), photoDirect(photo), photoThumb(photo)]}
-            style={{ opacity: loaded ? 1 : 0 }}
-          />
+          {/* The frame has the photograph's own proportions and clips anything
+              below it, so the archive's caption strip under the scan is never shown. */}
+          <div className="lightbox__crop" style={{ ["--r" as string]: photo.r }}>
+            <ArchiveImg
+              alt=""
+              className="lightbox__under"
+              eager
+              sources={[photoThumb(photo), photoDirect(photo)]}
+            />
+            <ArchiveImg
+              alt={photo.t}
+              className="lightbox__img"
+              eager
+              onLoad={() => setLoadedId(photo.id)}
+              sources={[photoFull(photo), photoDirect(photo), photoThumb(photo)]}
+              style={{ opacity: loaded ? 1 : 0 }}
+            />
+          </div>
           <button aria-label="Предыдущий снимок" className="lightbox__nav lightbox__nav--prev" onClick={prev} type="button">
             <ArrowLeft size={22} weight="bold" />
           </button>
