@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  // Self-hosted deploy config for "Старый Сухум" (Cloudflare Workers).
+  // Build:  bun install && bun run build
+  // Deploy: npx wrangler deploy
+  "name": "stariy-sukhum",
+
+  // The Worker entry is the TanStack Start SSR server bundle emitted by `vite build`.
+  "main": "dist/server/server.js",
+  "compatibility_date": "2025-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // Static files in dist/client are served directly; everything else (incl. "/")
+  // falls through to the SSR Worker.
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "not_found_handling": "none"
+  },
+
+  "vars": { "HF_ENV": "prod", "APP_SLUG": "stariy-sukhum" }
+
+  // OPTIONAL — R2 cache for full-size photos (src/routes/img.$.ts).
+  // Without it the site still works: full-size photos are fetched from
+  // pastvu.com on every request. To enable: create an R2 bucket named
+  // "stariy-sukhum-assets" in the Cloudflare dashboard, then add a comma after
+  // the "vars" line above and uncomment the block below.
+  //   "r2_buckets": [
+  //     { "binding": "STORAGE", "bucket_name": "stariy-sukhum-assets" }
+  //   ]
+}
