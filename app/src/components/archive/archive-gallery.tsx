@@ -367,7 +367,6 @@ function PhotoCard({ photo, onOpen }: { photo: ArchivePhoto; onOpen: () => void 
         <span className="photo__place">{photo.t}</span>
         <span className="photo__line">
           <span className="photo__year">{photo.y}</span>
-          <span className="photo__author">{authorLabel(photo)}</span>
         </span>
       </figcaption>
     </figure>
@@ -481,18 +480,6 @@ function Lightbox({
               <dt>Автор снимка</dt>
               <dd>{authorLabel(photo)}</dd>
             </div>
-            {photo.s ? (
-              <div>
-                <dt>Источник</dt>
-                <dd>{photo.s}</dd>
-              </div>
-            ) : null}
-            {photo.u ? (
-              <div>
-                <dt>В архив добавил</dt>
-                <dd>{photo.u}</dd>
-              </div>
-            ) : null}
           </dl>
           {photo.d ? <p className="lightbox__desc">{photo.d}</p> : null}
           <a className="record-link" href={photoRecord(photo)} rel="noopener noreferrer" target="_blank">
