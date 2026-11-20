@@ -1,0 +1,33 @@
+{
+  // Deploy config for "Старый Сухум" on Cloudflare Workers.
+  // Works with Cloudflare's default settings (no root directory, no build
+  // command, deploy command `npx wrangler deploy`): wrangler runs the build
+  // below itself, then uploads the result.
+  "name": "stariy-sukhum",
+  "main": "app/dist/server/server.js",
+  "compatibility_date": "2025-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  "build": {
+    "command": "cd app && bun install --frozen-lockfile && bun run build"
+  },
+
+  // Static files are served directly; everything else goes to the SSR Worker.
+  "assets": {
+    "directory": "./app/dist/client",
+    "binding": "ASSETS",
+    "not_found_handling": "none"
+  },
+
+  "vars": { "HF_ENV": "prod", "APP_SLUG": "stariy-sukhum" }
+
+  // OPTIONAL — R2 cache for full-size photos (app/src/routes/img.$.ts).
+  // Without it the site still works: full-size photos are fetched from
+  // pastvu.com on every request. To enable: create an R2 bucket named
+  // "stariy-sukhum-assets", add a comma after the "vars" line above and
+  // uncomment the block below.
+  //   "r2_buckets": [
+  //     { "binding": "STORAGE", "bucket_name": "stariy-sukhum-assets" }
+  //   ]
+}
