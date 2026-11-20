@@ -25,6 +25,7 @@ import {
 import { scrollToId } from "@/lib/scroll-to";
 
 import { ArchiveImg } from "./archive-img";
+import { PhotoZoom } from "./photo-zoom";
 import "./archive.css";
 
 interface LightboxState {
@@ -388,6 +389,7 @@ function Lightbox({
   const [loadedId, setLoadedId] = useState<number | null>(null);
   const loaded = loadedId === photo?.id;
   const touch = useRef<number | null>(null);
+  const zoomedRef = useRef(false);
 
   const prev = useCallback(() => onIndex((index - 1 + items.length) % items.length), [index, items.length, onIndex]);
   const next = useCallback(() => onIndex((index + 1) % items.length), [index, items.length, onIndex]);
@@ -435,18 +437,19 @@ function Lightbox({
             const start = touch.current;
             const end = e.changedTouches[0]?.clientX;
             touch.current = null;
-            if (start == null || end == null) return;
+            // No swipe navigation while the photo is zoomed or being pinched.
+            if (start == null || end == null || zoomedRef.current) return;
             if (end - start > 50) prev();
             else if (start - end > 50) next();
           }}
           onTouchStart={(e) => {
-            touch.current = e.touches[0]?.clientX ?? null;
+            touch.current = e.touches.length === 1 ? (e.touches[0]?.clientX ?? null) : null;
           }}
         >
           {!loaded ? <span aria-hidden="true" className="lightbox__loading" /> : null}
           {/* The frame has the photograph's own proportions and clips anything
               below it, so the archive's caption strip under the scan is never shown. */}
-          <div className="lightbox__crop" style={{ ["--r" as string]: photo.r }}>
+          <PhotoZoom key={photo.id} ratio={photo.r} zoomedRef={zoomedRef}>
             <ArchiveImg
               alt=""
               className="lightbox__under"
@@ -461,7 +464,7 @@ function Lightbox({
               sources={[photoFull(photo), photoDirect(photo), photoThumb(photo)]}
               style={{ opacity: loaded ? 1 : 0 }}
             />
-          </div>
+          </PhotoZoom>
           <button aria-label="Предыдущий снимок" className="lightbox__nav lightbox__nav--prev" onClick={prev} type="button">
             <ArrowLeft size={22} weight="bold" />
           </button>
