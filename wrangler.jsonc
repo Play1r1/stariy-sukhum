@@ -17,7 +17,9 @@
   "assets": {
     "directory": "./app/dist/client",
     "binding": "ASSETS",
-    "not_found_handling": "none"
+    "not_found_handling": "none",
+    // Serve .html files at their exact address (the Google verification file needs it).
+    "html_handling": "none"
   },
 
   "vars": { "HF_ENV": "prod", "APP_SLUG": "stariy-sukhum" }
