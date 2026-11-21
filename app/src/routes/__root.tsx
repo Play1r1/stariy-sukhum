@@ -67,6 +67,10 @@ function toOwnAssetUrl(value: string | null | undefined): string | null {
   }
 }
 
+/** The site's one public address. Search engines are told to index this one,
+ *  not any other copy of the same page. Change it here when the domain changes. */
+const SITE_URL = "https://stariy-sukhum.oldsukhum.workers.dev";
+
 function buildHead(meta: AppMeta) {
   const title = meta.og_title ?? DEFAULT_TITLE;
   const description = meta.og_description ?? DEFAULT_DESCRIPTION;
@@ -84,6 +88,7 @@ function buildHead(meta: AppMeta) {
       { property: "og:title", content: title },
       { property: "og:description", content: description },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: `${SITE_URL}/` },
       { name: "twitter:card", content: ogImage ? "summary_large_image" : "summary" },
       ...(ogImage
         ? [
@@ -96,6 +101,7 @@ function buildHead(meta: AppMeta) {
       ...(ogVideo ? [{ property: "og:video", content: ogVideo }] : []),
     ],
     links: [
+      { rel: "canonical", href: `${SITE_URL}/` },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" as const },
       {
