@@ -766,6 +766,8 @@ body.sukhum-body {
 }
 
 .lightbox__crop {
+  display: grid;
+  place-items: center;
   cursor: zoom-in;
   touch-action: none;
   user-select: none;
@@ -785,10 +787,14 @@ body.sukhum-body {
   cursor: crosshair;
 }
 
-/* Layer that carries the zoom and pan transform. */
+/* The photo box: it has the photograph's proportions, clips what hangs below
+   the photograph, and carries the zoom and pan transform. */
 .lightbox__zoom {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  width: 100%;
+  aspect-ratio: calc(var(--r, 1.5) * 1.004);
+  overflow: hidden;
+  border-radius: inherit;
   transform-origin: 0 0;
   transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
   will-change: transform;
@@ -863,6 +869,68 @@ body.sukhum-body {
 .lightbox__tool:focus-visible {
   outline: 2px solid var(--sk-accent);
   outline-offset: 2px;
+}
+
+/* ---------- full-screen view: the photo alone on the whole screen ---------- */
+.lightbox.lightbox--full {
+  padding: 0;
+}
+
+.lightbox.lightbox--full .lightbox__sheet {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  width: 100vw;
+  height: 100dvh;
+  max-height: none;
+  border-radius: 0;
+  background: var(--sk-ink);
+  box-shadow: none;
+  animation: none;
+}
+
+.lightbox.lightbox--full .lightbox__info {
+  display: none;
+}
+
+.lightbox.lightbox--full .lightbox__stage {
+  padding: 0;
+  background: var(--sk-ink);
+}
+
+/* The frame is the whole screen; the photo box is centred in it and may grow
+   over all of it when zoomed. */
+.lightbox.lightbox--full .lightbox__crop {
+  width: 100vw;
+  height: 100dvh;
+  aspect-ratio: auto;
+  border-radius: 0;
+  cursor: zoom-in;
+}
+
+.lightbox.lightbox--full .lightbox__zoom {
+  width: min(100vw, calc(100dvh * var(--r, 1.5)));
+}
+
+.lightbox.lightbox--full .lightbox__crop.is-zoomed {
+  cursor: grab;
+}
+
+.lightbox.lightbox--full .lightbox__crop.is-dragging {
+  cursor: grabbing;
+}
+
+.lightbox.lightbox--full .lightbox__crop.is-loupe {
+  cursor: crosshair;
+}
+
+/* Nothing but the photo and its controls while it is full screen. */
+body:has(.lightbox--full) .site-header {
+  visibility: hidden;
+}
+
+.lightbox__close--full {
+  z-index: 3;
+  background: color-mix(in srgb, var(--sk-paper) 90%, transparent);
 }
 
 /* The loupe follows a mouse; touch screens zoom with a tap or a pinch instead. */

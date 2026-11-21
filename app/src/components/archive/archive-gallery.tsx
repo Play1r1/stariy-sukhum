@@ -390,6 +390,8 @@ function Lightbox({
   const loaded = loadedId === photo?.id;
   const touch = useRef<number | null>(null);
   const zoomedRef = useRef(false);
+  // Full-screen view: the photo alone on the whole screen, opened by a click on it.
+  const [full, setFull] = useState(false);
 
   const prev = useCallback(() => onIndex((index - 1 + items.length) % items.length), [index, items.length, onIndex]);
   const next = useCallback(() => onIndex((index + 1) % items.length), [index, items.length, onIndex]);
@@ -417,18 +419,21 @@ function Lightbox({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        if (full) setFull(false);
+        else onClose();
+      }
       else if (e.key === "ArrowLeft") prev();
       else if (e.key === "ArrowRight") next();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [next, onClose, prev]);
+  }, [full, next, onClose, prev]);
 
   if (!photo) return null;
 
   return (
-    <div aria-label={photo.t} aria-modal="true" className="lightbox" role="dialog">
+    <div aria-label={photo.t} aria-modal="true" className={full ? "lightbox lightbox--full" : "lightbox"} role="dialog">
       <button aria-label="Закрыть" className="lightbox__backdrop" onClick={onClose} tabIndex={-1} type="button" />
       <div className="lightbox__sheet">
         <div
@@ -449,7 +454,13 @@ function Lightbox({
           {!loaded ? <span aria-hidden="true" className="lightbox__loading" /> : null}
           {/* The frame has the photograph's own proportions and clips anything
               below it, so the archive's caption strip under the scan is never shown. */}
-          <PhotoZoom key={photo.id} ratio={photo.r} zoomedRef={zoomedRef}>
+          <PhotoZoom
+            full={full}
+            key={`${photo.id}-${full ? "full" : "sheet"}`}
+            onToggleFull={() => setFull((on) => !on)}
+            ratio={photo.r}
+            zoomedRef={zoomedRef}
+          >
             <ArchiveImg
               alt=""
               className="lightbox__under"
@@ -471,6 +482,16 @@ function Lightbox({
           <button aria-label="Следующий снимок" className="lightbox__nav lightbox__nav--next" onClick={next} type="button">
             <ArrowRight size={22} weight="bold" />
           </button>
+          {full ? (
+            <button
+              aria-label="Выйти из полноэкранного просмотра"
+              className="lightbox__close lightbox__close--full"
+              onClick={() => setFull(false)}
+              type="button"
+            >
+              <X size={20} weight="bold" />
+            </button>
+          ) : null}
         </div>
         <aside className="lightbox__info">
           <button aria-label="Закрыть" className="lightbox__close" onClick={onClose} ref={closeRef} type="button">

@@ -8,7 +8,9 @@ import {
   type ReactNode,
 } from "react";
 import {
+  ArrowCounterClockwise,
   ArrowsIn,
+  ArrowsOut,
   MagnifyingGlass,
   MagnifyingGlassMinus,
   MagnifyingGlassPlus,
@@ -49,25 +51,34 @@ function clamp(value: number, min: number, max: number) {
 }
 
 /**
- * The photo frame of the lightbox with zoom: click or tap to zoom in and out,
- * mouse wheel or pinch to zoom freely, drag to move around, plus an optional
- * hover loupe. The frame keeps the photograph's own proportions and clips
- * everything outside it at any zoom level.
+ * The photo frame of the lightbox. A click or tap on the photo opens it full
+ * screen; in full screen a click or tap zooms in and out. In both views the
+ * mouse wheel or a pinch zooms freely, a drag moves around, and there is an
+ * optional hover loupe. The frame keeps the photograph's own proportions and
+ * clips everything outside it at any zoom level.
  *
- * Mount it with `key={photo.id}` so every photo starts unzoomed.
+ * Mount it with a key made of the photo id and the view, so every photo and
+ * every switch of view starts unzoomed.
  */
 export function PhotoZoom({
   ratio,
   zoomedRef,
+  full,
+  onToggleFull,
   children,
 }: {
   /** Photograph width / height. */
   ratio: number;
   /** Kept true while the photo is zoomed, so the parent can pause swipe navigation. */
   zoomedRef: MutableRefObject<boolean>;
+  /** True while the photo is shown full screen. */
+  full: boolean;
+  /** Enter or leave the full-screen view. */
+  onToggleFull: () => void;
   children: ReactNode;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<View>(REST);
   const [view, setView] = useState<View>(REST);
   const [smooth, setSmooth] = useState(false);
@@ -78,42 +89,67 @@ export function PhotoZoom({
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const gesture = useRef({ downX: 0, downY: 0, moved: false, pinched: false, dist: 0 });
 
-  /** Set the view, keeping the photo covering the whole frame. */
+  /**
+   * Sizes of the frame (the area that takes clicks and clips the photo) and of
+   * the photo box inside it, plus where the box sits at rest. In the sheet the
+   * two are the same size; full screen, the frame is the whole screen and the
+   * box is the photo centred in it.
+   */
+  const geometry = useCallback(() => {
+    const frame = frameRef.current;
+    const box = boxRef.current;
+    if (!frame || !box) return null;
+    const W = frame.clientWidth;
+    const H = frame.clientHeight;
+    const w = box.offsetWidth;
+    const h = box.offsetHeight;
+    return { W, H, w, h, ox: (W - w) / 2, oy: (H - h) / 2 };
+  }, []);
+
+  /**
+   * Set the view. `x` and `y` move the photo box from its resting place. A
+   * zoomed photo smaller than the frame stays centred; a larger one can be
+   * moved until its edge meets the frame's edge, never further.
+   */
   const apply = useCallback(
     (next: View, animate: boolean) => {
-      const el = frameRef.current;
-      if (!el) return;
-      const w = el.clientWidth;
-      const h = el.clientHeight;
+      const g = geometry();
+      if (!g) return;
       const s = clamp(next.s, 1, MAX_ZOOM);
-      const v = s <= 1.001 ? REST : { s, x: clamp(next.x, w - w * s, 0), y: clamp(next.y, h - h * s, 0) };
+      const axis = (t: number, frame: number, size: number, offset: number) =>
+        size * s <= frame ? (frame - size * s) / 2 - offset : clamp(t, frame - size * s - offset, -offset);
+      const v = s <= 1.001 ? REST : { s, x: axis(next.x, g.W, g.w, g.ox), y: axis(next.y, g.H, g.h, g.oy) };
       viewRef.current = v;
       zoomedRef.current = v.s > 1;
       setSmooth(animate);
       setView(v);
       if (v.s > 1) setLens(null);
     },
-    [zoomedRef],
+    [geometry, zoomedRef],
   );
 
   /** Zoom to `target`, keeping the frame point (cx, cy) under the cursor or finger. */
   const zoomAt = useCallback(
     (target: number, cx: number, cy: number, animate: boolean) => {
+      const g = geometry();
+      if (!g) return;
       const v = viewRef.current;
       const s = clamp(target, 1, MAX_ZOOM);
       const k = s / v.s;
-      apply({ s, x: cx - (cx - v.x) * k, y: cy - (cy - v.y) * k }, animate);
+      const px = cx - g.ox;
+      const py = cy - g.oy;
+      apply({ s, x: px - (px - v.x) * k, y: py - (py - v.y) * k }, animate);
     },
-    [apply],
+    [apply, geometry],
   );
 
   const zoomCenter = useCallback(
     (target: number) => {
-      const el = frameRef.current;
-      if (!el) return;
-      zoomAt(target, el.clientWidth / 2, el.clientHeight / 2, true);
+      const g = geometry();
+      if (!g) return;
+      zoomAt(target, g.W / 2, g.H / 2, true);
     },
-    [zoomAt],
+    [geometry, zoomAt],
   );
 
   useEffect(() => {
@@ -155,24 +191,30 @@ export function PhotoZoom({
 
   const updateLens = (e: ReactPointerEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
+    const g = geometry();
     const img =
       el.querySelector<HTMLImageElement>(".lightbox__img") ?? el.querySelector<HTMLImageElement>(".lightbox__under");
     const src = img?.currentSrc;
-    if (!img || !src) return;
-    const w = el.clientWidth;
-    const h = el.clientHeight;
+    if (!g || !img || !src) return;
     const p = local(e);
-    // The lens stays inside the frame, and it never samples outside the photograph.
+    // Position inside the photo box; no lens over the empty area around it.
+    const qx = p.x - g.ox;
+    const qy = p.y - g.oy;
+    if (qx < 0 || qy < 0 || qx > g.w || qy > g.h) {
+      setLens(null);
+      return;
+    }
+    // The lens stays inside the photo, and it never samples outside the photograph.
     const reach = LENS_RADIUS / LENS_ZOOM;
-    const sx = clamp(p.x, Math.min(reach, w / 2), Math.max(w - reach, w / 2));
-    const sy = clamp(p.y, Math.min(reach, h / 2), Math.max(h - reach, h / 2));
+    const sx = clamp(qx, Math.min(reach, g.w / 2), Math.max(g.w - reach, g.w / 2));
+    const sy = clamp(qy, Math.min(reach, g.h / 2), Math.max(g.h - reach, g.h / 2));
     setLens({
-      left: clamp(p.x, Math.min(LENS_RADIUS, w / 2), Math.max(w - LENS_RADIUS, w / 2)),
-      top: clamp(p.y, Math.min(LENS_RADIUS, h / 2), Math.max(h - LENS_RADIUS, h / 2)),
+      left: g.ox + clamp(qx, Math.min(LENS_RADIUS, g.w / 2), Math.max(g.w - LENS_RADIUS, g.w / 2)),
+      top: g.oy + clamp(qy, Math.min(LENS_RADIUS, g.h / 2), Math.max(g.h - LENS_RADIUS, g.h / 2)),
       bgX: LENS_RADIUS - sx * LENS_ZOOM,
       bgY: LENS_RADIUS - sy * LENS_ZOOM,
-      bgW: w * LENS_ZOOM,
-      bgH: img.getBoundingClientRect().height * LENS_ZOOM,
+      bgW: g.w * LENS_ZOOM,
+      bgH: img.offsetHeight * LENS_ZOOM,
       src,
     });
   };
@@ -214,10 +256,18 @@ export function PhotoZoom({
       const m0 = mid(before);
       const m1 = mid(after);
       const dist = Math.hypot(after[0].x - after[1].x, after[0].y - after[1].y);
-      if (g.dist > 0) {
+      const geo = geometry();
+      if (g.dist > 0 && geo) {
         const s = clamp((v.s * dist) / g.dist, 1, MAX_ZOOM);
         const k = s / v.s;
-        apply({ s, x: m1.x - (m0.x - v.x) * k, y: m1.y - (m0.y - v.y) * k }, false);
+        apply(
+          {
+            s,
+            x: m1.x - geo.ox - (m0.x - geo.ox - v.x) * k,
+            y: m1.y - geo.oy - (m0.y - geo.oy - v.y) * k,
+          },
+          false,
+        );
       }
       g.dist = dist;
       return;
@@ -237,11 +287,18 @@ export function PhotoZoom({
     if (pointers.current.size > 0) return;
     setDragging(false);
     if (e.type === "pointercancel" || g.moved || g.pinched) return;
-    // A plain click or tap: zoom in to that spot, or back out.
-    if (viewRef.current.s > 1) apply(REST, true);
+    // A plain click or tap opens the photo full screen; once there, it zooms
+    // in to that spot, or back out.
+    if (!full) onToggleFull();
+    else if (viewRef.current.s > 1) apply(REST, true);
     else {
       const p = local(e);
-      zoomAt(TAP_ZOOM, p.x, p.y, true);
+      const geo = geometry();
+      const outside =
+        geo && (p.x < geo.ox || p.y < geo.oy || p.x > geo.ox + geo.w || p.y > geo.oy + geo.h);
+      // A click on the empty area around the photo leaves the full-screen view.
+      if (outside) onToggleFull();
+      else zoomAt(TAP_ZOOM, p.x, p.y, true);
     }
   };
 
@@ -269,6 +326,7 @@ export function PhotoZoom({
       >
         <div
           className="lightbox__zoom"
+          ref={boxRef}
           style={{
             transform: `translate3d(${view.x}px, ${view.y}px, 0) scale(${view.s})`,
             transition: smooth ? undefined : "none",
@@ -318,7 +376,7 @@ export function PhotoZoom({
             onClick={() => apply(REST, true)}
             type="button"
           >
-            <ArrowsIn size={20} weight="bold" />
+            <ArrowCounterClockwise size={20} weight="bold" />
           </button>
         ) : (
           <button
@@ -334,6 +392,14 @@ export function PhotoZoom({
             <MagnifyingGlass size={20} weight="bold" />
           </button>
         )}
+        <button
+          aria-label={full ? "Выйти из полноэкранного просмотра" : "На весь экран"}
+          className="lightbox__tool"
+          onClick={onToggleFull}
+          type="button"
+        >
+          {full ? <ArrowsIn size={20} weight="bold" /> : <ArrowsOut size={20} weight="bold" />}
+        </button>
       </div>
     </>
   );
